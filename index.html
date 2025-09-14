@@ -39,19 +39,23 @@ h1, h2 {
 <body>
   <h1>Blog</h1>
 
-  <section id="articles-section">
-    <ul id="articles-list"></ul>
-  </section>
-
+<section id="articles-section">
+  <ul id="articles-list"></ul>
+  <button id="load-more" style="display:none;">Načíst další</button>
+</section>
+  
   <section id="article-section" style="display:none;">
     <div id="article-content"></div>
     <a href="/">← Zpět na seznam článků</a>
   </section>
 
-  <script>
-const API_KEY = "iR0SFubwR8Z9WmdYD0gnkODNxTsC6amBlN6X4jMtoTjM1Z8Zyw";
+  <script>const API_KEY = "iR0SFubwR8Z9WmdYD0gnkODNxTsC6amBlN6X4jMtoTjM1Z8Zyw";
 const BLOG_NAME = "tenrizoto";
-const PREFIX_LENGTH = 500; // kolik znaků ukázat v náhledu
+const PREFIX_LENGTH = 200; // kolik znaků ukázat v náhledu
+const LIMIT = 20;          // kolik článků načíst na jeden request
+
+let offset = 0;            // od kterého článku začít
+let allLoaded = false;     // jestli už došly články
 
 function getQueryParam(name) {
   const params = new URLSearchParams(window.location.search);
@@ -59,15 +63,27 @@ function getQueryParam(name) {
 }
 
 async function fetchArticles() {
-  const res = await fetch(`https://api.tumblr.com/v2/blog/${BLOG_NAME}.tumblr.com/posts?api_key=${API_KEY}`);
+  const res = await fetch(`https://api.tumblr.com/v2/blog/${BLOG_NAME}.tumblr.com/posts?api_key=${API_KEY}&limit=${LIMIT}&offset=${offset}`);
   const data = await res.json();
   return data.response.posts;
 }
 
-async function showArticles() {
+async function showArticles(initial = false) {
   const posts = await fetchArticles();
   const list = document.getElementById("articles-list");
-  list.innerHTML = "";
+
+  // pokud první načítání, vymaž seznam
+  if (initial) {
+    list.innerHTML = "";
+    offset = 0;
+    allLoaded = false;
+  }
+
+  if (!posts || posts.length === 0) {
+    allLoaded = true;
+    document.getElementById("load-more").style.display = "none";
+    return;
+  }
 
   posts.forEach(post => {
     const li = document.createElement("li");
@@ -79,6 +95,17 @@ async function showArticles() {
     li.innerHTML = `<a href="?article=${slug}">${title}</a> <span class="date">${date}</span><br><p class="prefix">${prefix}...</p>`;
     list.appendChild(li);
   });
+
+  // posuň offset pro příští request
+  offset += LIMIT;
+
+  // schovej load more, pokud došlo článků
+  if (posts.length < LIMIT) {
+    allLoaded = true;
+    document.getElementById("load-more").style.display = "none";
+  } else {
+    document.getElementById("load-more").style.display = "block";
+  }
 }
 
 async function showArticle(slug) {
@@ -100,7 +127,14 @@ const slug = getQueryParam("article");
 if (slug) {
   showArticle(slug);
 } else {
-  showArticles();
+  showArticles(true);
+
+  // navážeme klik na tlačítko
+  document.getElementById("load-more").addEventListener("click", () => {
+    if (!allLoaded) {
+      showArticles();
+    }
+  });
 }
   </script>
 </body>
