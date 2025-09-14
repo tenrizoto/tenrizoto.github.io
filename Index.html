@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<title>Moje články</title>
+<style>
+  .date { color: gray; }
+  .prefix { font-style: italic; }
+</style>
+</head>
+<body>
+
+<h1>Seznam článků</h1>
+
+<section id="articles">
+<!-- GitHub Actions sem vloží seznam článků -->
+</section>
+
+<section id="article-content">
+<!-- Zde se načte celý článek po kliknutí -->
+</section>
+
+<script>
+async function loadArticle() {
+    const params = new URLSearchParams(window.location.search);
+    const articleName = params.get('article');
+    if (!articleName) return;
+
+    try {
+        const response = await fetch(`article/${articleName}.html`);
+        if (!response.ok) throw new Error("Článek nenalezen");
+        const html = await response.text();
+        document.getElementById("article-content").innerHTML = html;
+        document.getElementById("article-content").scrollIntoView();
+    } catch (e) {
+        document.getElementById("article-content").innerHTML = `<p style="color:red;">${e.message}</p>`;
+    }
+}
+
+window.addEventListener('DOMContentLoaded', loadArticle);
+</script>
+
+</body>
+</html>
