@@ -7,21 +7,25 @@ ARTICLE_DIR = "article"
 INDEX_FILE = "index.html"
 DATA_FILE = "articles_data.json"
 
-# Načtení uložených dat
+# Načtení uložených dat (bez selhání při prázdném JSON)
 if os.path.exists(DATA_FILE):
-    with open(DATA_FILE, "r", encoding="utf-8") as f:
-        saved_data = json.load(f)
+    try:
+        with open(DATA_FILE, "r", encoding="utf-8") as f:
+            saved_data = json.load(f)
+    except json.JSONDecodeError:
+        saved_data = {}
 else:
     saved_data = {}
 
 articles = []
 
+# Procházení článků
 for filename in os.listdir(ARTICLE_DIR):
     if not filename.endswith(".html"):
         continue
     filepath = os.path.join(ARTICLE_DIR, filename)
 
-    # zachování původního data vytvoření
+    # Zachování původního data vytvoření
     if filename in saved_data:
         created_date = saved_data[filename]["date"]
         ctime = saved_data[filename]["ctime"]
@@ -31,6 +35,7 @@ for filename in os.listdir(ARTICLE_DIR):
         ctime = ctime_val
         saved_data[filename] = {"date": created_date, "ctime": ctime}
 
+    # Načtení HTML článku
     with open(filepath, "r", encoding="utf-8") as f:
         soup = BeautifulSoup(f, "html.parser")
         h3 = soup.find("h3")
@@ -46,10 +51,10 @@ for filename in os.listdir(ARTICLE_DIR):
         "ctime": ctime
     })
 
-# Seřazení podle ctime (nejnovější nahoře)
+# Seřazení článků od nejnovějších
 articles.sort(key=lambda x: x["ctime"], reverse=True)
 
-# Generování HTML pro index
+# Generování HTML sekce
 section_html = '<section id="articles">\n<ul>\n'
 for art in articles:
     link = f'?article={art["filename"].replace(".html","")}'
@@ -72,3 +77,5 @@ with open(INDEX_FILE, "w", encoding="utf-8") as f:
 # Uložení dat o článcích
 with open(DATA_FILE, "w", encoding="utf-8") as f:
     json.dump(saved_data, f, indent=2)
+
+print("✅ index.html aktualizován, articles_data.json uložen")
