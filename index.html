@@ -4,137 +4,161 @@
   <meta charset="UTF-8">
   <title>TenRizoto</title>
   <style>
-    body {
-  font-family: Arial, sans-serif;
-  line-height: 1.6;
-  margin: 20px;
-}
-
-h1, h2 {
-  color: #cc3366;
-}
-
-#articles-list li {
-  margin-bottom: 20px;
-}
-
-.prefix {
-  color: #555;
-  font-style: italic;
-}
-
-.date {
-  font-size: 0.9em;
-  color: #888;
-}
-
-#article-section a {
-  display: inline-block;
-  margin-top: 20px;
-  text-decoration: none;
-  color: #cc3366;
-}
+    body { font-family: Arial, sans-serif; line-height: 1.6; margin: 20px; }
+    h1, h2 { color: #cc3366; }
+    #articles-list li { margin-bottom: 20px; }
+    .prefix { color: #555; font-style: italic; }
+    .date { font-size: 0.9em; color: #888; }
+    #article-section a { display: inline-block; margin-top: 20px; text-decoration: none; color: #cc3366; }
+    #load-more { padding: 8px 14px; border: none; background:#cc3366; color:#fff; border-radius:6px; cursor:pointer; }
+    #load-more[disabled]{opacity:0.6;cursor:default;}
   </style>
 </head>
 <body>
   <h1>Blog</h1>
 
-<section id="articles-section">
-  <ul id="articles-list"></ul>
-  <button id="load-more" style="display:none;">Načíst další</button>
-</section>
-  
+  <section id="articles-section">
+    <ul id="articles-list"></ul>
+    <button id="load-more" style="display:none;">Načíst další</button>
+  </section>
+
   <section id="article-section" style="display:none;">
     <div id="article-content"></div>
     <a href="/">← Zpět na seznam článků</a>
   </section>
 
-  <script>const API_KEY = "iR0SFubwR8Z9WmdYD0gnkODNxTsC6amBlN6X4jMtoTjM1Z8Zyw";
+  <script>
+/* ====== Nastavení (měň tady) ====== */
+const API_KEY = "iR0SFubwR8Z9WmdYD0gnkODNxTsC6amBlN6X4jMtoTjM1Z8Zyw";
 const BLOG_NAME = "tenrizoto";
 const PREFIX_LENGTH = 200; // kolik znaků ukázat v náhledu
-const LIMIT = 20;          // kolik článků načíst na jeden request
+const LIMIT = 20;          // kolik článků načíst najednou
+/* ================================== */
 
-let offset = 0;            // od kterého článku začít
-let allLoaded = false;     // jestli už došly články
+let offset = 0;
+let allLoaded = false;
 
 function getQueryParam(name) {
-  const params = new URLSearchParams(window.location.search);
-  return params.get(name);
+  return new URLSearchParams(window.location.search).get(name);
 }
 
-async function fetchArticles() {
-  const res = await fetch(`https://api.tumblr.com/v2/blog/${BLOG_NAME}.tumblr.com/posts?api_key=${API_KEY}&limit=${LIMIT}&offset=${offset}`);
+// bezpečné získání textového obsahu příspěvku (fallbacky podle typu)
+function getPostText(post) {
+  const maybe = post.body ?? post.caption ?? post.summary ?? post.text ?? post.description ?? "";
+  // odstranit HTML tagy
+  return String(maybe).replace(/<[^>]*>?/gm, '');
+}
+
+async function fetchArticlesBatch() {
+  const url = `https://api.tumblr.com/v2/blog/${BLOG_NAME}.tumblr.com/posts?api_key=${API_KEY}&limit=${LIMIT}&offset=${offset}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('Chyba při volání Tumblr API: ' + res.status);
   const data = await res.json();
-  return data.response.posts;
+  if (!data || !data.response) throw new Error('Neplatná odpověď API');
+  return data.response.posts || [];
 }
 
 async function showArticles(initial = false) {
-  const posts = await fetchArticles();
   const list = document.getElementById("articles-list");
+  const loadBtn = document.getElementById("load-more");
 
-  // pokud první načítání, vymaž seznam
   if (initial) {
+    // reset *před* fetch!
     list.innerHTML = "";
     offset = 0;
     allLoaded = false;
+    loadBtn.style.display = "none";
   }
 
-  if (!posts || posts.length === 0) {
-    allLoaded = true;
+  try {
+    const posts = await fetchArticlesBatch();
+
+    if (!posts || posts.length === 0) {
+      allLoaded = true;
+      loadBtn.style.display = "none";
+      return;
+    }
+
+    posts.forEach(post => {
+      const li = document.createElement("li");
+      const title = post.title || (post.summary ? post.summary.substring(0,50) : "Bez názvu");
+      const date = post.date ? new Date(post.date).toLocaleDateString() : "";
+      const raw = getPostText(post);
+      const prefix = raw.substring(0, PREFIX_LENGTH);
+      const slug = post.slug || (post.id ? String(post.id) : "");
+
+      li.innerHTML = `<a href="?article=${encodeURIComponent(slug)}">${title}</a> <span class="date">${date}</span><br><p class="prefix">${prefix}${raw.length > PREFIX_LENGTH ? '...' : ''}</p>`;
+      list.appendChild(li);
+    });
+
+    // posuneme offset podle skutečně načteného počtu položek (bezpečnější než přepočet na LIMIT)
+    offset += posts.length;
+
+    if (posts.length < LIMIT) {
+      allLoaded = true;
+      loadBtn.style.display = "none";
+    } else {
+      loadBtn.style.display = "inline-block";
+      loadBtn.disabled = false;
+    }
+
+  } catch (err) {
+    console.error(err);
+    // prosté zobrazení chyby uživateli
+    const errLi = document.createElement("li");
+    errLi.style.color = "red";
+    errLi.textContent = "Chyba při načítání článků — zkontroluj konzoli.";
+    list.appendChild(errLi);
     document.getElementById("load-more").style.display = "none";
-    return;
-  }
-
-  posts.forEach(post => {
-    const li = document.createElement("li");
-    const title = post.title || "Bez názvu";
-    const date = new Date(post.date).toLocaleDateString();
-    const prefix = post.body.replace(/<[^>]*>?/gm, '').substring(0, PREFIX_LENGTH);
-    const slug = post.slug;
-
-    li.innerHTML = `<a href="?article=${slug}">${title}</a> <span class="date">${date}</span><br><p class="prefix">${prefix}...</p>`;
-    list.appendChild(li);
-  });
-
-  // posuň offset pro příští request
-  offset += LIMIT;
-
-  // schovej load more, pokud došlo článků
-  if (posts.length < LIMIT) {
-    allLoaded = true;
-    document.getElementById("load-more").style.display = "none";
-  } else {
-    document.getElementById("load-more").style.display = "block";
   }
 }
 
 async function showArticle(slug) {
-  const res = await fetch(`https://api.tumblr.com/v2/blog/${BLOG_NAME}.tumblr.com/posts?api_key=${API_KEY}&slug=${slug}`);
-  const data = await res.json();
-  const post = data.response.posts[0];
-  if (!post) return;
+  try {
+    const url = `https://api.tumblr.com/v2/blog/${BLOG_NAME}.tumblr.com/posts?api_key=${API_KEY}&slug=${encodeURIComponent(slug)}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('Chyba API: ' + res.status);
+    const data = await res.json();
+    const post = data.response.posts && data.response.posts[0];
+    if (!post) {
+      document.getElementById("article-content").innerHTML = "<p>Článek nenalezen.</p>";
+      return;
+    }
 
-  document.getElementById("articles-section").style.display = "none";
-  const container = document.getElementById("article-content");
-  container.innerHTML = `<h2>${post.title}</h2>
-                         <span class="date">${new Date(post.date).toLocaleDateString()}</span>
-                         <div>${post.body}</div>
-                         <a href="/">← Zpět na seznam článků</a>`;
-  document.getElementById("article-section").style.display = "block";
+    document.getElementById("articles-section").style.display = "none";
+    const container = document.getElementById("article-content");
+    const bodyHTML = post.body ?? post.caption ?? post.description ?? "";
+    container.innerHTML = `<h2>${post.title ?? ''}</h2>
+                           <span class="date">${post.date ? new Date(post.date).toLocaleDateString() : ''}</span>
+                           <div>${bodyHTML}</div>
+                           <a href="/">← Zpět na seznam článků</a>`;
+    document.getElementById("article-section").style.display = "block";
+
+  } catch (err) {
+    console.error(err);
+    document.getElementById("article-content").innerHTML = "<p style='color:red;'>Chyba při načítání článku. Zkontroluj konzoli.</p>";
+  }
 }
 
+/* === inicializace === */
 const slug = getQueryParam("article");
+
+// vždy připojíme listener (pokud existuje button)
+const loadBtnEl = document.getElementById("load-more");
+if (loadBtnEl) {
+  loadBtnEl.addEventListener("click", () => {
+    if (!allLoaded) {
+      loadBtnEl.disabled = true; // zamezit vícenásobným klikům
+      showArticles(false);
+    }
+  });
+}
+
 if (slug) {
   showArticle(slug);
 } else {
+  // načteme první várku a zobrazíme tlačítko podle výsledku
   showArticles(true);
-
-  // navážeme klik na tlačítko
-  document.getElementById("load-more").addEventListener("click", () => {
-    if (!allLoaded) {
-      showArticles();
-    }
-  });
 }
   </script>
 </body>
