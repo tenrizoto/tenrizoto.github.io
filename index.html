@@ -1,44 +1,105 @@
 <!DOCTYPE html>
 <html lang="cs">
 <head>
-<meta charset="UTF-8">
-<title>Moje články</title>
-<style>
-  .date { color: gray; }
-  .prefix { font-style: italic; }
-</style>
-</head>
-<body>
-
-<h1>Seznam článků</h1>
-
-<section id="articles">
-<!-- GitHub Actions sem vloží seznam článků -->
-</section>
-
-<section id="article-content">
-<!-- Zde se načte celý článek po kliknutí -->
-</section>
-
-<script>
-async function loadArticle() {
-    const params = new URLSearchParams(window.location.search);
-    const articleName = params.get('article');
-    if (!articleName) return;
-
-    try {
-        const response = await fetch(`article/${articleName}.html`);
-        if (!response.ok) throw new Error("Článek nenalezen");
-        const html = await response.text();
-        document.getElementById("article-content").innerHTML = html;
-        document.getElementById("article-content").scrollIntoView();
-    } catch (e) {
-        document.getElementById("article-content").innerHTML = `<p style="color:red;">${e.message}</p>`;
-    }
+  <meta charset="UTF-8">
+  <title>TenRizoto Blog</title>
+  <style>
+    body {
+  font-family: Arial, sans-serif;
+  line-height: 1.6;
+  margin: 20px;
 }
 
-window.addEventListener('DOMContentLoaded', loadArticle);
-</script>
+h1, h2 {
+  color: #cc3366;
+}
 
+#articles-list li {
+  margin-bottom: 20px;
+}
+
+.prefix {
+  color: #555;
+  font-style: italic;
+}
+
+.date {
+  font-size: 0.9em;
+  color: #888;
+}
+
+#article-section a {
+  display: inline-block;
+  margin-top: 20px;
+  text-decoration: none;
+  color: #cc3366;
+}
+  </style>
+</head>
+<body>
+  <h1>TenRizoto Blog</h1>
+
+  <section id="articles-section">
+    <ul id="articles-list"></ul>
+  </section>
+
+  <section id="article-section" style="display:none;">
+    <div id="article-content"></div>
+    <a href="index.html">← Zpět na seznam článků</a>
+  </section>
+
+  <script>
+    const API_KEY = "iR0SFubwR8Z9WmdYD0gnkODNxTsC6amBlN6X4jMtoTjM1Z8Zyw";       // Tvůj Tumblr API key
+    const BLOG_NAME = "tenrizoto";   // např. tenrizoto
+
+    function getQueryParam(name) {
+      const params = new URLSearchParams(window.location.search);
+      return params.get(name);
+    }
+
+    async function fetchArticles() {
+      const res = await fetch(`https://api.tumblr.com/v2/blog/${BLOG_NAME}.tumblr.com/posts?api_key=${API_KEY}`);
+      const data = await res.json();
+      return data.response.posts;
+    }
+
+    async function showArticles() {
+      const posts = await fetchArticles();
+      const list = document.getElementById("articles-list");
+      list.innerHTML = "";
+
+      posts.forEach(post => {
+        const li = document.createElement("li");
+        const title = post.title || "Bez názvu";
+        const date = new Date(post.date).toLocaleDateString();
+        const prefix = post.body.replace(/<[^>]*>?/gm, '').substring(0, 150);
+        const slug = post.slug;
+
+        li.innerHTML = `<a href="?article=${slug}">${title}</a> <span class="date">${date}</span><br><p class="prefix">${prefix}...</p>`;
+        list.appendChild(li);
+      });
+    }
+
+    async function showArticle(slug) {
+      const res = await fetch(`https://api.tumblr.com/v2/blog/${BLOG_NAME}.tumblr.com/posts?api_key=${API_KEY}&slug=${slug}`);
+      const data = await res.json();
+      const post = data.response.posts[0];
+      if (!post) return;
+
+      document.getElementById("articles-section").style.display = "none";
+      const container = document.getElementById("article-content");
+      container.innerHTML = `<h2>${post.title}</h2>
+                             <span class="date">${new Date(post.date).toLocaleDateString()}</span>
+                             <div>${post.body}</div>`;
+      document.getElementById("article-section").style.display = "block";
+    }
+
+    const slug = getQueryParam("article");
+    if (slug) {
+      showArticle(slug);
+    } else {
+      showArticles();
+    }
+  </script>
 </body>
 </html>
