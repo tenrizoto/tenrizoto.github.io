@@ -28,7 +28,7 @@ jobs:
       - name: Generate index.html
         run: python update_index.py
 
-      # 5️⃣ Commit a push změn přes GITHUB_TOKEN
+      # 5️⃣ Commit a push přes GITHUB_TOKEN
       - name: Commit and Push changes
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -37,5 +37,5 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add index.html articles_data.json
           git commit -m "Update index with new articles" || echo "No changes to commit"
-          # Push přes token, aby bot měl práva
+          # Push přes token pro write access
           git push https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }} HEAD:main
