@@ -2,7 +2,7 @@
 <html lang="cs">
 <head>
   <meta charset="UTF-8">
-  <title>TenRizoto Blog</title>
+  <title>TenRizoto</title>
   <style>
     body {
   font-family: Arial, sans-serif;
@@ -37,7 +37,7 @@ h1, h2 {
   </style>
 </head>
 <body>
-  <h1>TenRizoto Blog</h1>
+  <h1>Blog</h1>
 
   <section id="articles-section">
     <ul id="articles-list"></ul>
@@ -45,61 +45,63 @@ h1, h2 {
 
   <section id="article-section" style="display:none;">
     <div id="article-content"></div>
-    <a href="index.html">← Zpět na seznam článků</a>
+    <a href="/">← Zpět na seznam článků</a>
   </section>
 
   <script>
-    const API_KEY = "iR0SFubwR8Z9WmdYD0gnkODNxTsC6amBlN6X4jMtoTjM1Z8Zyw";       // Tvůj Tumblr API key
-    const BLOG_NAME = "tenrizoto";   // např. tenrizoto
+const API_KEY = "iR0SFubwR8Z9WmdYD0gnkODNxTsC6amBlN6X4jMtoTjM1Z8Zyw";
+const BLOG_NAME = "tenrizoto";
+const PREFIX_LENGTH = 500; // kolik znaků ukázat v náhledu
 
-    function getQueryParam(name) {
-      const params = new URLSearchParams(window.location.search);
-      return params.get(name);
-    }
+function getQueryParam(name) {
+  const params = new URLSearchParams(window.location.search);
+  return params.get(name);
+}
 
-    async function fetchArticles() {
-      const res = await fetch(`https://api.tumblr.com/v2/blog/${BLOG_NAME}.tumblr.com/posts?api_key=${API_KEY}`);
-      const data = await res.json();
-      return data.response.posts;
-    }
+async function fetchArticles() {
+  const res = await fetch(`https://api.tumblr.com/v2/blog/${BLOG_NAME}.tumblr.com/posts?api_key=${API_KEY}`);
+  const data = await res.json();
+  return data.response.posts;
+}
 
-    async function showArticles() {
-      const posts = await fetchArticles();
-      const list = document.getElementById("articles-list");
-      list.innerHTML = "";
+async function showArticles() {
+  const posts = await fetchArticles();
+  const list = document.getElementById("articles-list");
+  list.innerHTML = "";
 
-      posts.forEach(post => {
-        const li = document.createElement("li");
-        const title = post.title || "Bez názvu";
-        const date = new Date(post.date).toLocaleDateString();
-        const prefix = post.body.replace(/<[^>]*>?/gm, '').substring(0, 150);
-        const slug = post.slug;
+  posts.forEach(post => {
+    const li = document.createElement("li");
+    const title = post.title || "Bez názvu";
+    const date = new Date(post.date).toLocaleDateString();
+    const prefix = post.body.replace(/<[^>]*>?/gm, '').substring(0, PREFIX_LENGTH);
+    const slug = post.slug;
 
-        li.innerHTML = `<a href="?article=${slug}">${title}</a> <span class="date">${date}</span><br><p class="prefix">${prefix}...</p>`;
-        list.appendChild(li);
-      });
-    }
+    li.innerHTML = `<a href="?article=${slug}">${title}</a> <span class="date">${date}</span><br><p class="prefix">${prefix}...</p>`;
+    list.appendChild(li);
+  });
+}
 
-    async function showArticle(slug) {
-      const res = await fetch(`https://api.tumblr.com/v2/blog/${BLOG_NAME}.tumblr.com/posts?api_key=${API_KEY}&slug=${slug}`);
-      const data = await res.json();
-      const post = data.response.posts[0];
-      if (!post) return;
+async function showArticle(slug) {
+  const res = await fetch(`https://api.tumblr.com/v2/blog/${BLOG_NAME}.tumblr.com/posts?api_key=${API_KEY}&slug=${slug}`);
+  const data = await res.json();
+  const post = data.response.posts[0];
+  if (!post) return;
 
-      document.getElementById("articles-section").style.display = "none";
-      const container = document.getElementById("article-content");
-      container.innerHTML = `<h2>${post.title}</h2>
-                             <span class="date">${new Date(post.date).toLocaleDateString()}</span>
-                             <div>${post.body}</div>`;
-      document.getElementById("article-section").style.display = "block";
-    }
+  document.getElementById("articles-section").style.display = "none";
+  const container = document.getElementById("article-content");
+  container.innerHTML = `<h2>${post.title}</h2>
+                         <span class="date">${new Date(post.date).toLocaleDateString()}</span>
+                         <div>${post.body}</div>
+                         <a href="/">← Zpět na seznam článků</a>`;
+  document.getElementById("article-section").style.display = "block";
+}
 
-    const slug = getQueryParam("article");
-    if (slug) {
-      showArticle(slug);
-    } else {
-      showArticles();
-    }
+const slug = getQueryParam("article");
+if (slug) {
+  showArticle(slug);
+} else {
+  showArticles();
+}
   </script>
 </body>
 </html>
